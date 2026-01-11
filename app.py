@@ -454,11 +454,13 @@ with col_g1:
                 extras_params={"prompt": "consent", "access_type": "offline"}
             )
             if token:
-                st.write("Debug Token:", token) # DEBUG: Check what we actually got
+                # Parse nested token if necessary (based on debug output)
+                token_data = token.get('token', token)
+                
                 # Create credentials object
                 creds = Credentials(
-                    token=token['access_token'],
-                    refresh_token=token.get('refresh_token'),
+                    token=token_data['access_token'],
+                    refresh_token=token_data.get('refresh_token'),
                     token_uri=TOKEN_URL,
                     client_id=CLIENT_ID,
                     client_secret=CLIENT_SECRET,
