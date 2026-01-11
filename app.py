@@ -454,6 +454,7 @@ with col_g1:
                 extras_params={"prompt": "consent", "access_type": "offline"}
             )
             if token:
+                st.write("Debug Token:", token) # DEBUG: Check what we actually got
                 # Create credentials object
                 creds = Credentials(
                     token=token['access_token'],
