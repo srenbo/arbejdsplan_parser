@@ -176,6 +176,7 @@ def get_auth_flow():
         return None
         
     client_config = {"web": st.secrets["google_oauth"]}
+    st.error(client_config)
     redirect_uri = st.secrets["google_oauth"]["redirect_uris"][0]
     
     flow = Flow.from_client_config(
