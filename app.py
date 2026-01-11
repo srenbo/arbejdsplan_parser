@@ -9,11 +9,15 @@ import io
 from datetime import datetime, timedelta, time
 
 # --- CLOUD IMPORTS ---
+import json
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
 from google.cloud import storage
-from google_auth_oauthlib.flow import Flow
-from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from streamlit_oauth import OAuth2Component, StreamlitOauthError
+from streamlit_cookies_manager import EncryptedCookieManager
+
+st.set_page_config(page_title="Vagtplan Manager", layout="wide")
 
 # --- KONFIGURATION ---
 SCOPES = ['https://www.googleapis.com/auth/calendar']
@@ -171,47 +175,51 @@ storage_manager = CloudStorageManager()
 
 # --- GOOGLE AUTH ---
 
-def get_auth_flow():
-    if "google_oauth" not in st.secrets:
-        return None
-        
-    client_config = {"web": st.secrets["google_oauth"]}
-    st.error(client_config)
-    redirect_uri = st.secrets["google_oauth"]["redirect_uris"][0]
-    
-    flow = Flow.from_client_config(
-        client_config,
-        scopes=SCOPES,
-        redirect_uri=redirect_uri
-    )
-    return flow
+# --- GOOGLE AUTH & COOKIES ---
+
+try:
+    CLIENT_ID = st.secrets["auth"]["client_id"]
+    CLIENT_SECRET = st.secrets["auth"]["client_secret"]
+    REDIRECT_URI = st.secrets["auth"]["redirect_uri"]
+    TOKEN_URL = st.secrets["auth"]["token_url"]
+    COOKIE_PASSWORD = st.secrets["auth"]["cookie_secret"]
+    AUTHORIZATION_URL = st.secrets["auth"]["authorization_url"]
+except Exception as e:
+    st.error(f"Secrets Error: {e}")
+    st.stop()
+
+cookies = EncryptedCookieManager(prefix="vagtplan_auth/", password=COOKIE_PASSWORD)
+if not cookies.ready():
+    st.stop()
+
+oauth2 = OAuth2Component(
+    CLIENT_ID, CLIENT_SECRET, AUTHORIZATION_URL, TOKEN_URL, TOKEN_URL, ""
+)
 
 def handle_oauth():
-    # 1. Tjek session state
-    if 'credentials' in st.session_state:
-        creds = st.session_state.credentials
-        if creds and creds.valid:
-            return build('calendar', 'v3', credentials=creds)
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-                st.session_state.credentials = creds
-                return build('calendar', 'v3', credentials=creds)
-            except:
-                st.session_state.credentials = None
-
-    # 2. Tjek URL parametre (Redirect fra Google)
-    if "code" in st.query_params:
-        code = st.query_params["code"]
+    # 1. Check Session
+    if 'credentials' in st.session_state and st.session_state.credentials:
+        return build('calendar', 'v3', credentials=st.session_state.credentials)
+    
+    # 2. Check Cookies
+    token_str = cookies.get('google_token')
+    if token_str:
         try:
-            flow = get_auth_flow()
-            if flow:
-                flow.fetch_token(code=code)
-                st.session_state.credentials = flow.credentials
-                st.query_params.clear()
-                st.rerun()
+            token = json.loads(token_str)
+            creds = Credentials(
+                token=token['access_token'],
+                refresh_token=token.get('refresh_token'),
+                token_uri=TOKEN_URL,
+                client_id=CLIENT_ID,
+                client_secret=CLIENT_SECRET,
+                scopes=SCOPES
+            )
+            st.session_state.credentials = creds
+            return build('calendar', 'v3', credentials=creds)
         except Exception as e:
-            st.error(f"Login fejl: {e}")
+            # Invalid cookie data
+            return None
+            
     return None
 
 # --- PARSING ENGINE ---
@@ -428,7 +436,7 @@ def push_to_google_calendar(service, events_df, calendar_id):
 
 # --- STREAMLIT UI ---
 
-st.set_page_config(page_title="Vagtplan Manager", layout="wide")
+# st.set_page_config moved to top
 st.title("🏥 Vagtplan & Kalender Manager (Cloud)")
 
 # Google Auth
@@ -436,16 +444,47 @@ service = handle_oauth()
 col_g1, col_g2 = st.columns([1, 4])
 with col_g1:
     if not service:
-        flow = get_auth_flow()
-        if flow:
-            auth_url, _ = flow.authorization_url(prompt='consent')
-            st.link_button("🔐 Log ind med Google", auth_url)
-        else:
-            st.error("Mangler Google OAuth secrets.")
+        try:
+            token = oauth2.authorize_button(
+                name="🔐 Log ind med Google",
+                icon="https://www.google.com.tw/favicon.ico",
+                redirect_uri=REDIRECT_URI,
+                scope=" ".join(SCOPES),
+                key="google_oauth_btn",
+                extras_params={"prompt": "consent", "access_type": "offline"}
+            )
+            if token:
+                # Create credentials object
+                creds = Credentials(
+                    token=token['access_token'],
+                    refresh_token=token.get('refresh_token'),
+                    token_uri=TOKEN_URL,
+                    client_id=CLIENT_ID,
+                    client_secret=CLIENT_SECRET,
+                    scopes=SCOPES
+                )
+                st.session_state.credentials = creds
+                
+                # Save to cookie
+                cookies['google_token'] = json.dumps(token)
+                cookies.save()
+                st.rerun()
+                
+        except StreamlitOauthError:
+            st.query_params.clear()
+            st.rerun()
+        except Exception as e:
+            st.error(f"Auth Error: {e}")
+            
     else:
         st.success("Logget ind på Google")
         if st.button("Log ud"):
-            del st.session_state.credentials
+            if 'credentials' in st.session_state:
+                del st.session_state.credentials
+            
+            cookies['google_token'] = ""
+            cookies.save()
+            st.query_params.clear()
             st.rerun()
 
 # Fil Upload
