@@ -470,11 +470,11 @@ with col_g1:
                 # Save to cookie
                 cookies['google_token'] = json.dumps(token)
                 cookies.save()
-                st.rerun()
+                st.experimental_rerun()
                 
         except Exception as e:
             st.experimental_set_query_params()
-            st.rerun()
+            st.experimental_rerun()
             
     else:
         st.success("Logget ind på Google")
@@ -485,7 +485,7 @@ with col_g1:
             cookies['google_token'] = ""
             cookies.save()
             st.experimental_set_query_params()
-            st.rerun()
+            st.experimental_rerun()
 
 # Fil Upload
 uploaded_file = st.file_uploader("Upload vagtplan (Drag & Drop)", type=['xlsx', 'xls', 'csv'])
