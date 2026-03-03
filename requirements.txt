@@ -9,4 +9,3 @@ streamlit-oauth
 streamlit-cookies-manager
 python-dotenv
 altair<5
-imghdr
