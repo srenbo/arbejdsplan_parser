@@ -193,7 +193,7 @@ if not cookies.ready():
     st.stop()
 
 oauth2 = OAuth2Component(
-    CLIENT_ID, CLIENT_SECRET, AUTHORIZATION_URL, TOKEN_URL, TOKEN_URL, ""
+    CLIENT_ID, CLIENT_SECRET, AUTHORIZATION_URL, TOKEN_URL,
 )
 
 def handle_oauth():
