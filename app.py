@@ -447,7 +447,6 @@ with col_g1:
         try:
             token = oauth2.authorize_button(
                 name="🔐 Log ind med Google",
-                icon="https://www.google.com.tw/favicon.ico",
                 redirect_uri=REDIRECT_URI,
                 scope=" ".join(SCOPES),
                 key="google_oauth_btn",
@@ -474,7 +473,7 @@ with col_g1:
                 st.rerun()
                 
         except Exception as e:
-            st.query_params.clear()
+            st.experimental_set_query_params()
             st.rerun()
             
     else:
@@ -485,7 +484,7 @@ with col_g1:
             
             cookies['google_token'] = ""
             cookies.save()
-            st.query_params.clear()
+            st.experimental_set_query_params()
             st.rerun()
 
 # Fil Upload
