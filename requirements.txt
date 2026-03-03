@@ -8,3 +8,4 @@ streamlit
 streamlit-oauth
 streamlit-cookies-manager
 python-dotenv
+altair<5
