@@ -4,7 +4,7 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 google-cloud-storage
-streamlit
+streamlit>=1.54.0
 streamlit-oauth
 streamlit-cookies-manager
 python-dotenv
