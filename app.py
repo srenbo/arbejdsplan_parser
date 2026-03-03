@@ -14,7 +14,7 @@ from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
 from google.cloud import storage
 from googleapiclient.discovery import build
-from streamlit_oauth import OAuth2Component 
+from streamlit_oauth import OAuth2Component, StreamlitOauthError
 from streamlit_cookies_manager import EncryptedCookieManager
 
 st.set_page_config(page_title="Vagtplan Manager", layout="wide")
@@ -473,9 +473,10 @@ with col_g1:
                 cookies.save()
                 st.rerun()
                 
-        except Exception as e:
+        except StreamlitOauthError:
             st.query_params.clear()
             st.rerun()
+        except Exception as e:
             st.error(f"Auth Error: {e}")
             
     else:
