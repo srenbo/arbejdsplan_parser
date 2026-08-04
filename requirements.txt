@@ -6,7 +6,6 @@ google-api-python-client
 google-cloud-storage
 streamlit>=1.54.0
 streamlit-oauth
-streamlit-cookies-manager
 python-dotenv
 altair<5
 standard-imghdr

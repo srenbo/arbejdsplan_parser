@@ -15,7 +15,6 @@ from google.oauth2.credentials import Credentials
 from google.cloud import storage
 from googleapiclient.discovery import build
 from streamlit_oauth import OAuth2Component
-from streamlit_cookies_manager import EncryptedCookieManager
 
 st.set_page_config(page_title="Vagtplan Manager", layout="wide")
 
@@ -182,14 +181,9 @@ try:
     CLIENT_SECRET = st.secrets["auth"]["client_secret"]
     REDIRECT_URI = st.secrets["auth"]["redirect_uri"]
     TOKEN_URL = st.secrets["auth"]["token_url"]
-    COOKIE_PASSWORD = st.secrets["auth"]["cookie_secret"]
     AUTHORIZATION_URL = st.secrets["auth"]["authorization_url"]
 except Exception as e:
     st.error(f"Secrets Error: {e}")
-    st.stop()
-
-cookies = EncryptedCookieManager(prefix="vagtplan_auth/", password=COOKIE_PASSWORD)
-if not cookies.ready():
     st.stop()
 
 oauth2 = OAuth2Component(
@@ -197,29 +191,9 @@ oauth2 = OAuth2Component(
 )
 
 def handle_oauth():
-    # 1. Check Session
+    # Check Session State
     if 'credentials' in st.session_state and st.session_state.credentials:
         return build('calendar', 'v3', credentials=st.session_state.credentials)
-    
-    # 2. Check Cookies
-    token_str = cookies.get('google_token')
-    if token_str:
-        try:
-            token = json.loads(token_str)
-            creds = Credentials(
-                token=token['access_token'],
-                refresh_token=token.get('refresh_token'),
-                token_uri=TOKEN_URL,
-                client_id=CLIENT_ID,
-                client_secret=CLIENT_SECRET,
-                scopes=SCOPES
-            )
-            st.session_state.credentials = creds
-            return build('calendar', 'v3', credentials=creds)
-        except Exception as e:
-            # Invalid cookie data
-            return None
-            
     return None
 
 # --- PARSING ENGINE ---
@@ -466,10 +440,6 @@ with col_g1:
                     scopes=SCOPES
                 )
                 st.session_state.credentials = creds
-                
-                # Save to cookie
-                cookies['google_token'] = json.dumps(token)
-                cookies.save()
                 st.rerun()
                 
         except Exception as e:
@@ -482,8 +452,6 @@ with col_g1:
             if 'credentials' in st.session_state:
                 del st.session_state.credentials
             
-            cookies['google_token'] = ""
-            cookies.save()
             st.query_params.clear()
             st.rerun()
 
