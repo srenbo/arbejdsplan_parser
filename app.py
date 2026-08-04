@@ -237,20 +237,39 @@ def parse_schedule(file_obj, file_type):
 
     col_to_date = {} 
     row_vals = df.iloc[date_row_idx]
-    curr_month, curr_year = month, year
-    last_day = 0
     
+    day_cols = []
     for c_idx in range(len(df.columns)):
         val = str(row_vals[c_idx]).strip()
         if val.isdigit():
-            day = int(val)
-            if day < last_day: 
-                curr_month += 1
-                if curr_month > 12: curr_month, curr_year = 1, curr_year + 1
-            last_day = day
-            try:
-                col_to_date[c_idx] = datetime(curr_year, curr_month, day).date()
-            except: continue
+            day_cols.append((c_idx, int(val)))
+
+    if not day_cols: return pd.DataFrame(), month, year
+
+    # Find the index where day 1 occurs to mark the start of the target month
+    first_one_idx = next((i for i, (c, d) in enumerate(day_cols) if d == 1), 0)
+
+    # Process leading days belonging to the previous month
+    prev_month = 12 if month == 1 else month - 1
+    prev_year = year - 1 if month == 1 else year
+    for i in range(first_one_idx):
+        c_idx, day = day_cols[i]
+        try:
+            col_to_date[c_idx] = datetime(prev_year, prev_month, day).date()
+        except: continue
+
+    # Process target month and trailing days
+    curr_month, curr_year = month, year
+    last_day = 0
+    for i in range(first_one_idx, len(day_cols)):
+        c_idx, day = day_cols[i]
+        if day < last_day:
+            curr_month += 1
+            if curr_month > 12: curr_month, curr_year = 1, curr_year + 1
+        last_day = day
+        try:
+            col_to_date[c_idx] = datetime(curr_year, curr_month, day).date()
+        except: continue
 
     if not col_to_date: return pd.DataFrame(), month, year
     first_date_col = min(col_to_date.keys())
