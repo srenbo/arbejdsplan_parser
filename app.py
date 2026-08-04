@@ -363,37 +363,49 @@ def generate_ics_string(events_df):
 
 def render_calendar_html(doctor_df):
     if doctor_df.empty: return "<div>Ingen vagter fundet.</div>"
-    first_date = doctor_df.iloc[0]['Date'] 
-    year, month = first_date.year, first_date.month
-    shifts_map = {}
+    
+    # Saml vagter pr. (år, måned)
+    months_data = {}
     for _, row in doctor_df.iterrows():
         d = row['Date']
-        if d.month == month:
-            day = d.day
-            if day not in shifts_map: shifts_map[day] = []
-            s_t = row['Start_Time']
-            e_t = row['End_Time']
-            time_lbl = f"{s_t[:2]}:{s_t[2:]}-{e_t[:2]}:{e_t[2:]}"
-            shifts_map[day].append(f"{time_lbl} {row['Summary']}")
+        ym = (d.year, d.month)
+        if ym not in months_data:
+            months_data[ym] = {}
+        day = d.day
+        if day not in months_data[ym]:
+            months_data[ym][day] = []
+        s_t = str(row['Start_Time'])
+        e_t = str(row['End_Time'])
+        time_lbl = f"{s_t[:2]}:{s_t[2:]}-{e_t[:2]}:{e_t[2:]}"
+        months_data[ym][day].append(f"{time_lbl} {row['Summary']}")
 
     cal = calendar.Calendar(firstweekday=0)
-    month_days = cal.monthdayscalendar(year, month)
-    month_name = DANISH_MONTH_NAMES[month]
-    html = f"""<div style='font-family:sans-serif; text-align:center'><h3>{month_name} {year}</h3>"""
-    html += "<div style='display:grid; grid-template-columns:repeat(7,1fr); gap:4px;'>"
-    for d in DANISH_WEEKDAYS: html += f"<div style='background:#f0f0f0;padding:5px;font-weight:bold'>{d}</div>"
-    for week in month_days:
-        for day in week:
-            bg = "#fff" if day != 0 else "#fafafa"
-            border = "1px solid #ddd" if day != 0 else "none"
-            content = ""
-            if day != 0 and day in shifts_map:
-                for s in shifts_map[day]:
-                    color = "#f8d7da" if "fri" in s.lower() else "#d1e7dd"
-                    content += f"<div style='background:{color};font-size:0.7em;margin:1px;padding:2px;border-radius:3px'>{s}</div>"
-            html += f"<div style='background:{bg};border:{border};min-height:80px;padding:2px'><div style='color:#888;font-size:0.8em'>{day if day!=0 else ''}</div>{content}</div>"
-    html += "</div></div>"
-    return html
+    html_sections = []
+
+    for (year, month) in sorted(months_data.keys()):
+        shifts_map = months_data[(year, month)]
+        month_days = cal.monthdayscalendar(year, month)
+        month_name = DANISH_MONTH_NAMES[month]
+        
+        m_html = f"""<div style='font-family:sans-serif; text-align:center; margin-bottom: 30px;'><h3>{month_name} {year}</h3>"""
+        m_html += "<div style='display:grid; grid-template-columns:repeat(7,1fr); gap:4px;'>"
+        for d in DANISH_WEEKDAYS:
+            m_html += f"<div style='background:#f0f0f0;padding:5px;font-weight:bold'>{d}</div>"
+        
+        for week in month_days:
+            for day in week:
+                bg = "#fff" if day != 0 else "#fafafa"
+                border = "1px solid #ddd" if day != 0 else "none"
+                content = ""
+                if day != 0 and day in shifts_map:
+                    for s in shifts_map[day]:
+                        color = "#f8d7da" if "fri" in s.lower() else "#d1e7dd"
+                        content += f"<div style='background:{color};font-size:0.7em;margin:1px;padding:2px;border-radius:3px'>{s}</div>"
+                m_html += f"<div style='background:{bg};border:{border};min-height:80px;padding:2px'><div style='color:#888;font-size:0.8em'>{day if day!=0 else ''}</div>{content}</div>"
+        m_html += "</div></div>"
+        html_sections.append(m_html)
+
+    return "".join(html_sections)
 
 def push_to_google_calendar(service, events_df, calendar_id):
     batch = service.new_batch_http_request()
