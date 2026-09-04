@@ -246,30 +246,29 @@ def parse_schedule(file_obj, file_type):
 
     if not day_cols: return pd.DataFrame(), month, year
 
-    # Find the index where day 1 occurs to mark the start of the target month
-    first_one_idx = next((i for i, (c, d) in enumerate(day_cols) if d == 1), 0)
+    # Determine starting month and year.
+    # Leading days from the previous month only occur when the schedule starts near the end
+    # of the previous month (day >= 20) and rolls over to day 1 within the first week or so.
+    first_day = day_cols[0][1]
+    if first_day >= 20 and any(d == 1 for _, d in day_cols[:10]):
+        curr_month = 12 if month == 1 else month - 1
+        curr_year = year - 1 if month == 1 else year
+    else:
+        curr_month = month
+        curr_year = year
 
-    # Process leading days belonging to the previous month
-    prev_month = 12 if month == 1 else month - 1
-    prev_year = year - 1 if month == 1 else year
-    for i in range(first_one_idx):
-        c_idx, day = day_cols[i]
-        try:
-            col_to_date[c_idx] = datetime(prev_year, prev_month, day).date()
-        except: continue
-
-    # Process target month and trailing days
-    curr_month, curr_year = month, year
     last_day = 0
-    for i in range(first_one_idx, len(day_cols)):
-        c_idx, day = day_cols[i]
+    for c_idx, day in day_cols:
         if day < last_day:
             curr_month += 1
-            if curr_month > 12: curr_month, curr_year = 1, curr_year + 1
+            if curr_month > 12:
+                curr_month = 1
+                curr_year += 1
         last_day = day
         try:
             col_to_date[c_idx] = datetime(curr_year, curr_month, day).date()
-        except: continue
+        except:
+            continue
 
     if not col_to_date: return pd.DataFrame(), month, year
     first_date_col = min(col_to_date.keys())
